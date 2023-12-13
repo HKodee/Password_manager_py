@@ -157,5 +157,6 @@ class PasswordManagerGUI:
 
 if __name__ == "__main__":
     root = tk.Tk()
+    root.iconbitmap('password.ico')
     app = PasswordManagerGUI(root)
     root.mainloop()
