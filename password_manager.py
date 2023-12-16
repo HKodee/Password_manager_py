@@ -29,7 +29,6 @@ class PasswordManager:
         except FileNotFoundError:
             self.accounts = {}
         except json.JSONDecodeError:
-            # Handle the case where the JSON decoding fails
             self.accounts = {}
 
     def save_passwords(self):
@@ -76,7 +75,14 @@ class PasswordManager:
 class PasswordManagerGUI:
     def __init__(self, root):
         self.root = root
-        self.root.title("My Password Manager")
+        self.root.title("Password Manager")
+        self.root.configure(bg='#ccc')  # Set light blue background color
+
+        # Set the style for the Treeview widget
+        style = ttk.Style()
+        style.theme_use('clam')  # Use a clean and modern theme
+        style.configure("Treeview", font=('Arial', 12), rowheight=25, background='#b3e0ff', fieldbackground='#b3e0ff', borderwidth=0)
+        style.map("Treeview", relief=[('selected', 'sunken')])
 
         self.password_manager = PasswordManager()
 
@@ -87,14 +93,15 @@ class PasswordManagerGUI:
 
     def create_widgets(self):
         # Button widgets
-        ttk.Button(self.root, text="+", command=self.add_new_entry, width=5).pack(pady=20)
+        add_button = ttk.Button(self.root, text="Add", command=self.add_new_entry)
+        add_button.pack(pady=10)
 
         # Treeview widget for displaying passwords in a grid
-        self.tree = ttk.Treeview(self.root, columns=('S.no', 'Account', 'Site', 'Password'), show='headings')
-        self.tree.heading('S.no', text='S.no')
-        self.tree.heading('Account', text='Account')
-        self.tree.heading('Site', text='Site')
-        self.tree.heading('Password', text='Password')
+        self.tree = ttk.Treeview(self.root, columns=('S.no', 'Account', 'Site', 'Password'), show='headings', style="Treeview", height=20)
+        self.tree.heading('S.no', text='S.no', anchor='center')
+        self.tree.heading('Account', text='Account', anchor='center')
+        self.tree.heading('Site', text='Site', anchor='center')
+        self.tree.heading('Password', text='Password', anchor='center')
         self.tree.pack(pady=20)
 
         # Bind event for right-click
@@ -104,6 +111,9 @@ class PasswordManagerGUI:
         self.context_menu = tk.Menu(self.tree, tearoff=0)
         self.context_menu.add_command(label="Edit Password", command=self.edit_password)
         self.context_menu.add_command(label="Delete Password", command=self.delete_password)
+
+        # Instance variable for serial number
+        self.serial_number = 1
 
     def add_new_entry(self):
         account_name = simpledialog.askstring("Input", "Enter account:")
@@ -122,11 +132,15 @@ class PasswordManagerGUI:
         for item in self.tree.get_children():
             self.tree.delete(item)
 
+        # Reset serial number to 1
+        self.serial_number = 1
+
         # Populate the grid with passwords
         for account_name, account_data in self.password_manager.accounts.items():
             if isinstance(account_data, dict):  # Check if account_data is a dictionary
-                for idx, (site, password) in enumerate(account_data.items(), start=1):
-                    self.tree.insert('', 'end', values=(idx, account_name, site, password))
+                for site, password in account_data.items():
+                    self.tree.insert('', 'end', values=(self.serial_number, account_name, site, password))
+                    self.serial_number += 1
 
     def show_context_menu(self, event):
         # Select the item that was right-clicked
