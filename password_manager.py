@@ -76,33 +76,77 @@ class PasswordManagerGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("Password Manager")
-        self.root.configure(bg='#ccc')  # Set light blue background color
+        self.root.configure(bg='#ccc')  # Set light blue background colorccc
 
         # Set the style for the Treeview widget
-        style = ttk.Style()
-        style.theme_use('clam')  # Use a clean and modern theme
-        style.configure("Treeview", font=('Arial', 12), rowheight=25, background='#b3e0ff', fieldbackground='#b3e0ff', borderwidth=0)
-        style.map("Treeview", relief=[('selected', 'sunken')])
+        self.style = ttk.Style()
+        self.style.theme_create("professional_style", parent="clam", settings={
+            "TButton": {"configure": {"background": "#4CAF50", "foreground": "white"}},
+            "TEntry": {"configure": {"foreground": "black", "background": "white"}},
+            "Treeview": {"configure": {"background": "#f0f0f0", "fieldbackground": "white", "foreground": "black"}},
+            "TLabel": {"configure": {"foreground": "black", "background": "#f0f0f0"}},
+            "TFrame": {"configure": {"background": "#f0f0f0"}},
+        })
+        self.style.theme_use("professional_style")
+        self.style.theme_create("professional_style_dark", parent="clam", settings={
+            "TButton": {"configure": {"background": "#ccc", "foreground": "#292929"}},
+            "TEntry": {"configure": {"foreground": "green", "background": "#424242"}},
+            "Treeview": {"configure": {"background": "#121212", "fieldbackground": "#292929", "foreground": "white"}},
+            "TLabel": {"configure": {"foreground": "white", "background": "#292929"}},
+            "TFrame": {"configure": {"background": "#292929"}},
+        })
 
         self.password_manager = PasswordManager()
-
         self.create_widgets()
-
-        # Populate the grid with passwords when the application starts
         self.populate_password_grid()
+        self.dark_mode = tk.BooleanVar(value=False)
+
+        # Create a menu for toggling dark/light mode
+        self.create_menu()
+
+    def create_menu(self):
+        menu_bar = tk.Menu(self.root)
+        self.root.config(menu=menu_bar)
+
+        mode_menu = tk.Menu(menu_bar, tearoff=0)
+        menu_bar.add_cascade(label="Mode", menu=mode_menu)
+        mode_menu.add_checkbutton(label="Dark Mode", variable=self.dark_mode, command=self.toggle_dark_mode)
+        mode_menu.config(bd=2, relief="solid", font=('Arial', 10),)
+
+        # Bind a shortcut key to the menu item
+        self.root.bind_all("<Control-d>", lambda event: self.toggle_dark_mode())
+
+    def toggle_dark_mode(self):
+        if self.dark_mode.get():
+            self.root.configure(bg='#212121')
+            self.style.theme_use("professional_style_dark")
+        else:
+            self.root.configure(bg='#f0f0f0')
+            self.style.theme_use("professional_style")
 
     def create_widgets(self):
         # Button widgets
+        clear_all_button = ttk.Button(self.root, text="Clear All", command=self.clear_all_passwords)
+        clear_all_button.place(x=400, y=70)
+
         add_button = ttk.Button(self.root, text="Add", command=self.add_new_entry)
-        add_button.pack(pady=10)
+        add_button.place(x=451, y=70)
+
+        self.search_var = tk.StringVar()
+        search_entry = ttk.Entry(self.root, textvariable=self.search_var ,style="Search.TEntry",width=60)
+        search_entry.bind("<KeyRelease>", lambda event: self.search_passwords())
+        search_entry.place(x=830, y=75)
+        self.style.configure("Search.TEntry", padding=(5, 2), background='#f0f0f0', fieldbackground='white', foreground='green')
 
         # Treeview widget for displaying passwords in a grid
-        self.tree = ttk.Treeview(self.root, columns=('S.no', 'Account', 'Site', 'Password'), show='headings', style="Treeview", height=20)
+        self.tree = ttk.Treeview(self.root, columns=('S.no', 'Account', 'Site', 'Password'), show='headings',
+                                 style="Treeview", height=20)
         self.tree.heading('S.no', text='S.no', anchor='center')
         self.tree.heading('Account', text='Account', anchor='center')
         self.tree.heading('Site', text='Site', anchor='center')
         self.tree.heading('Password', text='Password', anchor='center')
         self.tree.pack(pady=20)
+        self.tree.place(x=400, y=150)
 
         # Bind event for right-click
         self.tree.bind("<Button-3>", self.show_context_menu)
@@ -114,6 +158,7 @@ class PasswordManagerGUI:
 
         # Instance variable for serial number
         self.serial_number = 1
+        
 
     def add_new_entry(self):
         account_name = simpledialog.askstring("Input", "Enter account:")
@@ -142,6 +187,7 @@ class PasswordManagerGUI:
                     self.tree.insert('', 'end', values=(self.serial_number, account_name, site, password))
                     self.serial_number += 1
 
+      
     def show_context_menu(self, event):
         # Select the item that was right-clicked
         item = self.tree.identify_row(event.y)
@@ -154,7 +200,8 @@ class PasswordManagerGUI:
         if selected_item:
             account_name = self.tree.item(selected_item, "values")[1]
             site = self.tree.item(selected_item, "values")[2]
-            new_password = simpledialog.askstring("Edit Password", f"Enter new password for {account_name}/{site}:", show='*')
+            new_password = simpledialog.askstring("Edit Password", f"Enter new password for {account_name}/{site}:",
+                                                  show='*')
             if new_password:
                 result = self.password_manager.edit_password(account_name, site, new_password)
                 messagebox.showinfo("Result", result)
@@ -167,6 +214,27 @@ class PasswordManagerGUI:
             site = self.tree.item(selected_item, "values")[2]
             result = self.password_manager.delete_password(account_name, site)
             messagebox.showinfo("Result", result)
+            self.populate_password_grid()
+
+    def search_passwords(self):
+        search_text = self.search_var.get().lower()
+        if search_text:
+            filtered_accounts = {}
+            for account_name, account_data in self.password_manager.accounts.items():
+                if any(search_text in value.lower() for value in [account_name] + list(account_data.keys()) +
+                       list(account_data.values())):
+                    filtered_accounts[account_name] = account_data
+
+            self.password_manager.accounts = filtered_accounts
+        else:
+            self.password_manager.load_passwords()
+
+        self.populate_password_grid()
+
+    def clear_all_passwords(self):
+        confirmation = messagebox.askyesno("Clear All Passwords", "Are you sure you want to clear all passwords?")
+        if confirmation:
+            self.password_manager.accounts = {}
             self.populate_password_grid()
 
 if __name__ == "__main__":
